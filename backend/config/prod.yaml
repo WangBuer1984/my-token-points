@@ -1,0 +1,71 @@
+# ==========================================
+# 生产环境配置
+# ==========================================
+
+# 应用配置
+app:
+  name: "my-token-points"
+  env: "prod"
+  log_level: "info"  # trace, debug, info, warn, error
+
+# 数据库配置 (支持环境变量)
+database:
+  host: "${DB_HOST:localhost}"
+  port: 5432
+  user: "${DB_USER:postgres}"
+  password: "${DB_PASSWORD}"
+  dbname: "token_points_prod"
+  sslmode: "require"
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 600  # 秒
+
+# API服务配置
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080
+  cors:
+    enabled: true
+    allowed_origins:
+      - "https://yourdomain.com"
+      - "https://app.yourdomain.com"
+
+# 区块链配置
+chains:
+  # Sepolia 测试网
+  - name: "sepolia"
+    chain_id: 11155111
+    rpc_url: "${SEPOLIA_RPC_URL}"
+    contract_address: "${SEPOLIA_CONTRACT}"
+    start_block: 0
+    scan_interval: 12
+    batch_size: 1000
+    # 区块浏览器配置（由 Etherscan 管理）
+    explorer_url: "https://sepolia.etherscan.io"
+    explorer_api_url: "https://api-sepolia.etherscan.io/api"
+
+  # Base Sepolia 测试网
+  - name: "base_sepolia"
+    chain_id: 84532
+    rpc_url: "${BASE_SEPOLIA_RPC_URL}"
+    contract_address: "${BASE_SEPOLIA_CONTRACT}"
+    start_block: 0
+    scan_interval: 2
+    batch_size: 1000
+    # 区块浏览器配置（由 Etherscan 管理）
+    explorer_url: "https://sepolia.basescan.org"
+    explorer_api_url: "https://api-sepolia.basescan.org/api"
+
+# 确认机制配置
+confirmation:
+  blocks: 6
+
+# 积分计算配置
+points:
+  enabled: true
+  cron_schedule: "0 * * * *"
+  annual_rate: 0.05
+  backfill_on_startup: true
+  backfill_max_days: 30
+
