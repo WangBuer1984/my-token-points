@@ -4,18 +4,19 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/jmoiron/sqlx"
 	"my-token-points/internal/model"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // SyncRepository 同步状态数据访问接口
 type SyncRepository interface {
 	// 获取链的同步状态
 	GetSyncState(ctx context.Context, chainName string) (*model.SyncState, error)
-	
+
 	// 更新同步状态
 	UpdateSyncState(ctx context.Context, state *model.SyncState) error
-	
+
 	// 初始化同步状态
 	InitSyncState(ctx context.Context, chainName string, startBlock int64) error
 }
@@ -37,7 +38,7 @@ func (r *syncRepo) GetSyncState(ctx context.Context, chainName string) (*model.S
 		FROM sync_state
 		WHERE chain_name = $1
 	`
-	
+
 	var state model.SyncState
 	err := r.db.GetContext(ctx, &state, query, chainName)
 	if err == sql.ErrNoRows {
@@ -46,7 +47,7 @@ func (r *syncRepo) GetSyncState(ctx context.Context, chainName string) (*model.S
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &state, nil
 }
 
@@ -63,10 +64,10 @@ func (r *syncRepo) UpdateSyncState(ctx context.Context, state *model.SyncState) 
 		WHERE chain_name = $6
 		RETURNING updated_at
 	`
-	
+
 	return r.db.QueryRowContext(
 		ctx, query,
-		state.LastSyncedBlock, state.LastConfirmedBlock, state.LastSyncAt, 
+		state.LastSyncedBlock, state.LastConfirmedBlock, state.LastSyncAt,
 		state.Status, state.ErrorMessage, state.ChainName,
 	).Scan(&state.UpdatedAt)
 }
@@ -78,8 +79,7 @@ func (r *syncRepo) InitSyncState(ctx context.Context, chainName string, startBlo
 		VALUES ($1, $2, $3, NOW(), $4)
 		ON CONFLICT (chain_name) DO NOTHING
 	`
-	
+
 	_, err := r.db.ExecContext(ctx, query, chainName, startBlock-1, startBlock-1, model.StatusRunning)
 	return err
 }
-

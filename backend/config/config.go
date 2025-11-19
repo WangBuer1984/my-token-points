@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -42,6 +43,7 @@ type APIConfig struct {
 	Enabled bool       `mapstructure:"enabled"`
 	Host    string     `mapstructure:"host"`
 	Port    int        `mapstructure:"port"`
+	Mode    string     `mapstructure:"mode"` // debug, release, test
 	CORS    CORSConfig `mapstructure:"cors"`
 }
 
@@ -71,11 +73,13 @@ type ConfirmationConfig struct {
 
 // PointsConfig 积分计算配置
 type PointsConfig struct {
-	Enabled           bool    `mapstructure:"enabled"`
-	CronSchedule      string  `mapstructure:"cron_schedule"`
-	AnnualRate        float64 `mapstructure:"annual_rate"`
-	BackfillOnStartup bool    `mapstructure:"backfill_on_startup"`
-	BackfillMaxDays   int     `mapstructure:"backfill_max_days"`
+	Enabled           bool          `mapstructure:"enabled"`
+	CronExpression    string        `mapstructure:"cron_expression"`    // Cron表达式
+	HourlyRate        float64       `mapstructure:"hourly_rate"`        // 小时积分利率
+	CalcInterval      time.Duration `mapstructure:"calc_interval"`      // 计算间隔
+	EnableBackfill    bool          `mapstructure:"enable_backfill"`    // 启用回溯计算
+	BackfillOnStartup bool          `mapstructure:"backfill_on_startup"` // 启动时自动回溯
+	BackfillMaxDays   int           `mapstructure:"backfill_max_days"`   // 最多回溯天数
 }
 
 // LoadConfig 加载配置文件
@@ -153,11 +157,23 @@ func validateConfig(config *Config) error {
 
 	// 验证积分配置
 	if config.Points.Enabled {
-		if config.Points.CronSchedule == "" {
-			return fmt.Errorf("points cron_schedule is required when points is enabled")
+		if config.Points.CronExpression == "" {
+			config.Points.CronExpression = "0 * * * *" // 默认每小时
 		}
-		if config.Points.AnnualRate <= 0 {
-			return fmt.Errorf("points annual_rate must be positive")
+		if config.Points.HourlyRate == 0 {
+			config.Points.HourlyRate = 0.05 // 默认5%
+		}
+		if config.Points.CalcInterval == 0 {
+			config.Points.CalcInterval = time.Hour // 默认1小时
+		}
+	}
+
+	// 设置API默认模式
+	if config.API.Mode == "" {
+		if config.App.Env == "dev" {
+			config.API.Mode = "debug"
+		} else {
+			config.API.Mode = "release"
 		}
 	}
 

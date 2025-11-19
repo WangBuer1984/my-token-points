@@ -25,6 +25,7 @@ api:
   enabled: true
   host: "0.0.0.0"
   port: 8080
+  mode: "debug"  # debug, release, test
   cors:
     enabled: true
     allowed_origins:
@@ -64,8 +65,10 @@ confirmation:
 # 积分计算配置
 points:
   enabled: true
-  cron_schedule: "0 * * * *"  # 每小时的第0分钟执行
-  annual_rate: 0.05  # 年化比率 5%
+  cron_expression: "0 * * * *"  # 每小时的第0分钟执行
+  hourly_rate: 0.05  # 小时积分利率 5%
+  calc_interval: 3600000000000  # 计算间隔 (纳秒) = 1小时
+  enable_backfill: true  # 启用回溯计算
   backfill_on_startup: true  # 启动时自动回溯计算
   backfill_max_days: 30  # 最多回溯30天
 

@@ -7,14 +7,19 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
+
 	"my-token-points/config"
+	"my-token-points/internal/api"
 	"my-token-points/internal/pkg/database"
 	"my-token-points/internal/pkg/logger"
 	"my-token-points/internal/repository"
 	"my-token-points/internal/service/balance"
 	"my-token-points/internal/service/listener"
+	"my-token-points/internal/service/points"
+	"my-token-points/internal/service/scheduler"
 )
 
 // startCmd 启动所有服务
@@ -56,24 +61,46 @@ func runStart() {
 	// 4. 创建 Repository 实例
 	syncRepo := repository.NewSyncRepository(db)
 	balanceRepo := repository.NewBalanceRepository(db)
-	
+	pointsRepo := repository.NewPointsRepository(db)
+
 	// 5. 创建 Service 实例
 	balanceService := balance.NewBalanceService(balanceRepo, log)
-	
-	// 6. 创建上下文
+
+	pointsConfig := &points.PointsConfig{
+		HourlyRate:     cfg.Points.HourlyRate,
+		CalcInterval:   cfg.Points.CalcInterval,
+		EnableBackfill: cfg.Points.EnableBackfill,
+	}
+	pointsService := points.NewPointsService(pointsRepo, balanceRepo, log, pointsConfig)
+
+	// 6. 创建调度器
+	schedulerConfig := &scheduler.SchedulerConfig{
+		EnableCalculation: cfg.Points.Enabled,
+		CronExpression:    cfg.Points.CronExpression,
+		Chains:            []scheduler.ChainConfig{},
+	}
+	for _, chain := range cfg.Chains {
+		schedulerConfig.Chains = append(schedulerConfig.Chains, scheduler.ChainConfig{
+			Name:    chain.Name,
+			Enabled: true,
+		})
+	}
+	schedulerService := scheduler.NewScheduler(pointsService, schedulerConfig, log)
+
+	// 7. 创建上下文
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	var wg sync.WaitGroup
 
-	// 7. 启动事件监听服务
+	// 8. 启动事件监听服务
 	log.Info("启动事件监听服务...")
 	for _, chainCfg := range cfg.Chains {
 		wg.Add(1)
 		go func(chain config.ChainConfig) {
 			defer wg.Done()
 			log.Infof("启动 %s 链的事件监听...", chain.Name)
-			
+
 			// 创建事件监听器
 			eventListener, err := listener.NewEventListener(
 				chain.Name,
@@ -87,50 +114,75 @@ func runStart() {
 				log.Errorf("创建 %s 监听器失败: %v", chain.Name, err)
 				return
 			}
-			
+
 			// 启动监听
 			if err := eventListener.Start(ctx); err != nil {
 				log.Errorf("启动 %s 监听器失败: %v", chain.Name, err)
 				return
 			}
-			
+
 			<-ctx.Done()
 			eventListener.Stop()
 			log.Infof("%s 监听器已停止", chain.Name)
 		}(chainCfg)
 	}
 
-	// 8. 启动积分计算服务 (第二阶段)
+	// 9. 启动积分计算服务
 	if cfg.Points.Enabled {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			log.Info("启动积分计算服务...")
-			// TODO (第二阶段): 实现积分计算服务
-			// pointsRepo := repository.NewPointsRepository(db)
-			// pointsSvc := points.NewPointsService(balanceRepo, pointsRepo, log)
-			// pointsSvc.Start(ctx)
+			log.Info("启动积分计算调度器...")
+
+			if err := schedulerService.Start(ctx); err != nil {
+				log.Errorf("启动调度器失败: %v", err)
+				return
+			}
+
 			<-ctx.Done()
+			if err := schedulerService.Stop(); err != nil {
+				log.Errorf("停止调度器失败: %v", err)
+			}
+			log.Info("积分计算调度器已停止")
 		}()
 	}
 
-	// 9. 启动API服务 (第二阶段)
+	// 10. 启动API服务
 	if cfg.API.Enabled {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			log.Infof("启动API服务 (http://%s:%d)...", cfg.API.Host, cfg.API.Port)
-			// TODO (第二阶段): 实现API服务
-			// pointsRepo := repository.NewPointsRepository(db)
-			// apiServer := api.NewServer(cfg, balanceRepo, pointsRepo, syncRepo, log)
-			// apiServer.Start(ctx)
-			<-ctx.Done()
+
+			// 创建API服务器
+			serverConfig := &api.ServerConfig{
+				Host: cfg.API.Host,
+				Port: cfg.API.Port,
+				Mode: cfg.API.Mode,
+			}
+			apiServer := api.NewServer(serverConfig, balanceService, pointsService, schedulerService, log)
+
+			// 启动服务器
+			if err := apiServer.Start(); err != nil {
+				log.Errorf("API服务器启动失败: %v", err)
+				return
+			}
 		}()
 	}
 
+	// 等待所有服务启动
+	time.Sleep(2 * time.Second)
 	log.Info("✅ 所有服务启动完成")
 
-	// 10. 等待中断信号
+	if cfg.API.Enabled {
+		log.Infof("📊 API服务地址: http://%s:%d", cfg.API.Host, cfg.API.Port)
+		log.Infof("📚 健康检查: http://%s:%d/health", cfg.API.Host, cfg.API.Port)
+	}
+	if cfg.Points.Enabled {
+		log.Info("⏰ 积分计算调度器已启动")
+	}
+
+	// 11. 等待中断信号
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
@@ -140,4 +192,3 @@ func runStart() {
 	wg.Wait()
 	log.Info("✅ 服务已停止")
 }
-

@@ -146,10 +146,10 @@ go run main.go start --env dev
 
 ## 📖 详细文档
 
-- 📘 [技术设计文档](docs/TECHNICAL_DESIGN.md) - 完整的技术方案
-- 📗 [系统架构文档](docs/ARCHITECTURE.md) - 架构设计详解
-- 📕 [快速开始指南](docs/QUICKSTART.md) - 5 分钟上手
-- 📙 [部署指南](docs/DEPLOYMENT.md) - 详细部署步骤
+- 📘 [第一阶段完成报告](PHASE1_FINAL_REPORT.md) - 智能合约 + 事件监听
+- 📗 [第二阶段完成报告](PHASE2_COMPLETE.md) - 积分计算 + API 服务
+- 📕 [快速开始指南](QUICKSTART_PHASE2.md) - 5 分钟上手
+- 📙 [数据库设计文档](DATABASE_DESIGN_UPDATE.md) - 数据库架构
 - 📝 [Etherscan API V2 更新](ETHERSCAN_API_V2_UPDATE.md) - 最新配置说明
 
 ## 🌟 核心特性
@@ -185,26 +185,34 @@ go run main.go start --env dev
 - 每条链独立监听和计算
 
 ### ✅ API 服务
-- RESTful API
-- 查询余额和积分
-- 历史记录查询
-- 系统状态监控
+- RESTful API（Gin 框架）
+- 余额查询和历史记录
+- 积分查询和历史记录
+- 积分排行榜
+- 手动触发计算
+- 健康检查接口
 
 ## 🔧 开发命令
 
 ```bash
-# 合约相关
+# 合约相关（在 contracts/ 目录）
 npm run compile          # 编译合约
-npm run deploy:sepolia   # 部署到 Sepolia
-npm run deploy:base-sepolia  # 部署到 Base Sepolia
-npm run interact:sepolia     # 测试交互
+npx hardhat run scripts/deploy.js --network sepolia
+npx hardhat run scripts/interact.js --network sepolia
 
-# 后端相关
-go run main.go start         # 启动所有服务
-go run main.go listener      # 仅启动事件监听
-go run main.go calculator    # 仅启动积分计算
-go run main.go api           # 仅启动 API 服务
-go run main.go migrate       # 数据库迁移
+# 后端相关（在 backend/ 目录）
+go build -o bin/my-token-points .   # 编译
+
+# 启动服务
+./bin/my-token-points start         # 启动所有服务（推荐）
+./bin/my-token-points listener      # 仅启动事件监听
+./bin/my-token-points calculator    # 仅启动积分计算
+./bin/my-token-points api           # 仅启动 API 服务
+
+# API 测试
+curl http://localhost:8080/health                        # 健康检查
+curl http://localhost:8080/api/v1/points/sepolia/0x...  # 查询积分
+curl http://localhost:8080/api/v1/leaderboard/sepolia   # 排行榜
 ```
 
 ## 📊 数据库表
@@ -237,12 +245,11 @@ go run main.go migrate       # 数据库迁移
 
 ## 📈 项目进度
 
-- ✅ 第一阶段：智能合约 + 数据库 + 基础架构（已完成 65%）
-- ⏳ 第二阶段：事件监听 + 余额重建
-- ⏳ 第三阶段：积分计算 + 回溯功能
-- ⏳ 第四阶段：API 服务 + 前端界面
+- ✅ 第一阶段：智能合约 + 数据库 + 事件监听 + 余额重建（已完成 100%）
+- ✅ 第二阶段：积分计算 + 定时任务 + API 服务（已完成 100%）
+- ⏳ 第三阶段：测试 + 监控 + 前端界面（可选）
 
-详见 [PHASE1_STATUS.md](PHASE1_STATUS.md)
+详见 [PHASE1_FINAL_REPORT.md](PHASE1_FINAL_REPORT.md) 和 [PHASE2_COMPLETE.md](PHASE2_COMPLETE.md)
 
 ## 🤝 贡献
 
