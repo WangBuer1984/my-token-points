@@ -50,7 +50,7 @@ func NewScheduler(
 ) *Scheduler {
 	// 设置默认值
 	if config.CronExpression == "" {
-		config.CronExpression = "0 * * * *" // 默认每小时执行一次
+		config.CronExpression = "0 0 * * * *" // 默认每小时执行一次（秒 分 时 日 月 周）
 	}
 
 	return &Scheduler{

@@ -148,24 +148,42 @@ func runStart() {
 	}
 
 	// 10. 启动API服务
+	var apiServer *api.Server
 	if cfg.API.Enabled {
+		// 创建API服务器
+		serverConfig := &api.ServerConfig{
+			Host: cfg.API.Host,
+			Port: cfg.API.Port,
+			Mode: cfg.API.Mode,
+		}
+		apiServer = api.NewServer(serverConfig, balanceService, pointsService, schedulerService, log)
+
+		// 在单独的 goroutine 中启动服务器
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			log.Infof("启动API服务 (http://%s:%d)...", cfg.API.Host, cfg.API.Port)
 
-			// 创建API服务器
-			serverConfig := &api.ServerConfig{
-				Host: cfg.API.Host,
-				Port: cfg.API.Port,
-				Mode: cfg.API.Mode,
-			}
-			apiServer := api.NewServer(serverConfig, balanceService, pointsService, schedulerService, log)
-
-			// 启动服务器
+			// 启动服务器（这是阻塞的）
 			if err := apiServer.Start(); err != nil {
 				log.Errorf("API服务器启动失败: %v", err)
-				return
+			}
+		}()
+
+		// 在另一个 goroutine 中等待关闭信号
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-ctx.Done()
+
+			// 收到关闭信号，优雅关闭 API 服务器
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+
+			if err := apiServer.Stop(shutdownCtx); err != nil {
+				log.Errorf("停止API服务器失败: %v", err)
+			} else {
+				log.Info("API服务器已停止")
 			}
 		}()
 	}

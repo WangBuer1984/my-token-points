@@ -158,7 +158,7 @@ func validateConfig(config *Config) error {
 	// 验证积分配置
 	if config.Points.Enabled {
 		if config.Points.CronExpression == "" {
-			config.Points.CronExpression = "0 * * * *" // 默认每小时
+			config.Points.CronExpression = "0 0 * * * *" // 默认每小时（秒 分 时 日 月 周）
 		}
 		if config.Points.HourlyRate == 0 {
 			config.Points.HourlyRate = 0.05 // 默认5%

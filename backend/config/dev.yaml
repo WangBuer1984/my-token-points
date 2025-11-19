@@ -65,7 +65,7 @@ confirmation:
 # 积分计算配置
 points:
   enabled: true
-  cron_expression: "0 * * * *"  # 每小时的第0分钟执行
+  cron_expression: "0 0 * * * *"  # 每小时的第0分0秒执行（秒 分 时 日 月 周）
   hourly_rate: 0.05  # 小时积分利率 5%
   calc_interval: 3600000000000  # 计算间隔 (纳秒) = 1小时
   enable_backfill: true  # 启用回溯计算
